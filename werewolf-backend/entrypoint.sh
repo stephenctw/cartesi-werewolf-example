@@ -12,4 +12,4 @@
 # specific language governing permissions and limitations under the License.
 
 set -e
-rollup-init python3 echo.py
+rollup-init python3 -m werewolf.dapp
