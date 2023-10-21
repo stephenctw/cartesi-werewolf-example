@@ -9,14 +9,15 @@ class Role(Enum):
 
 @dataclass
 class Player:
+  id: str
   role: Role
   is_alive: bool
-  pubKey: str
-  private_key: str
+  public_key: str
+  # private_key: str
 
 @dataclass
 class GameState:
   is_finished: bool
   is_day: bool
   round: int
-  players: List[Player]
+  players: List[Player] # assume the first player is moderator
