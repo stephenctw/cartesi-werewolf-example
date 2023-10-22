@@ -14,7 +14,8 @@ logger.info(f"HTTP rollup_server url is {rollup_server}")
 def handle_advance(data):
     logger.info(f"Received advance request data {data}")
     logger.info("Adding notice")
-    notice = {"payload": data["payload"]}
+    g.handle_advance(data)
+    notice = {"payload": "success"}
     response = requests.post(rollup_server + "/notice", json=notice)
     logger.info(
         f"Received notice status {response.status_code} body {response.content}")
