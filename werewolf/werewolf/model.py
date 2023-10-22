@@ -253,7 +253,7 @@ class Game:
         if alives > 2 and not werewolf.alive:
             print("VILLAGER WIN!!!")
         elif alives == 2 and werewolf.alive:
-            print("VILLAGER WIN!!!")
+            print("WEREWOLF WIN!!!")
         else:
             raise ValueError("game is not finished")
 
