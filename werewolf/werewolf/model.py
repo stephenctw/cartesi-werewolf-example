@@ -38,7 +38,7 @@ class Player:
         self.has_voted = False
         self.has_moved = False
         self.votes_got = 0
-        self.encrypted_role = None
+        self.encrypted_role = ""
 
     @property
     def alive(self):
@@ -166,6 +166,7 @@ class Game:
         self._alives = {}
         self._moderator = ""
         self._werewolf = ""
+        self._game_result = ""
 
     def __try_get_player(self, id: str):
         return self._players.get(id)
@@ -203,7 +204,7 @@ class Game:
         self.__toggle_day()
 
     def new_player(self, data):
-        id = data["metadata"]["msg_sender"]
+        id = data["metadata"]["msg_sender"].upper()
         pub_key = data["payload"]
 
         if len(self._players) >= NUMBER_OF_PLAYER:
@@ -227,37 +228,53 @@ class Game:
             self._players[moderator].can_be_voted = False
             self._moderator = moderator
 
-    def finish(self, payload):
-        private_keys_dict = json.loads(payload)
-        # TODO: replay the game with moderator key revealed
+    def reveal_role(self, player, payload):
+        key = rsa.PrivateKey.load_pkcs1(bytes.fromhex(payload), "DER")
+        role = rsa.decrypt(bytes.fromhex(player.encrypted_role), key)
+        player.role = role
+        if role == Role.WEREWOLF:
+            self._werewolf = player.id
 
-        # decrypt everyone's role
-        for p, pem in private_keys_dict.items():
-            player = self.__get_player(p)
-            if player.role == Role.MODERATOR:
-                continue
-
-            key = rsa.PrivateKey.load_pkcs1(bytes(pem, "utf-8"))
-            role = rsa.decrypt(bytes.fromhex(player.encrypted_role), key)
-
-            if role == b"WEREWOLF":
-                player.role = Role.WEREWOLF
-                self._werewolf = p
-            elif role == b"VILLAGER":
-                player.role = Role.VILLAGER
-            else:
-                raise ValueError("invalid role")
-
-        werewolf = self.__get_player(self._werewolf)
-        alives = len(self._alives)
-        if alives > 2 and not werewolf.alive:
-            print("VILLAGER WIN!!!")
-        elif alives == 2 and werewolf.alive:
-            print("WEREWOLF WIN!!!")
+    def finish(self):  # def finish(self, payload):
+        if len(self._werewolf) == 0 and len(self._alives) == 2:
+            self._game_result = "WEREWOLF WIN!!!"
+        elif len(self._werewolf) != 0 and self._werewolf not in self._alives:
+            self._game_result = "VILLAGER WIN!!!"
         else:
-            raise ValueError("game is not finished")
+            print("game is not finished")
 
-        self.__reset()
+        # private_keys_dict = json.loads(bytes.fromhex(payload).decode())
+        # # TODO: replay the game with moderator key revealed
+
+        # # decrypt everyone's role
+        # for p, der in private_keys_dict.items():
+        #     player = self.__get_player(p)
+        #     if player.role == Role.MODERATOR:
+        #         continue
+
+        #     key = rsa.PrivateKey.load_pkcs1(bytes.fromhex(der), "DER")
+        #     role = rsa.decrypt(bytes.fromhex(player.encrypted_role), key)
+
+        #     if role == b"WEREWOLF":
+        #         player.role = Role.WEREWOLF
+        #         self._werewolf = p
+        #     elif role == b"VILLAGER":
+        #         player.role = Role.VILLAGER
+        #     else:
+        #         raise ValueError("invalid role")
+
+        # werewolf = self.__get_player(self._werewolf)
+        # alives = len(self._alives)
+        # if alives > 2 and not werewolf.alive:
+        #     self._game_result = "VILLAGER WIN!!!"
+        #     # print("VILLAGER WIN!!!")
+        # elif alives == 2 and werewolf.alive:
+        #     self._game_result = "WEREWOLF WIN!!!"
+        #     # print("WEREWOLF WIN!!!")
+        # else:
+        #     raise ValueError("game is not finished")
+
+        # self.__reset()
 
     def handle_inspect(self):
         state = jsonpickle.encode(self, keys=True)
@@ -270,21 +287,29 @@ class Game:
             else:
                 self.new_player(data)
         else:
-            if data["payload"][:6] == "finish":
-                self.finish(data["payload"][6:])
+            player_id = data["metadata"]["msg_sender"].upper()
+            player = self.__get_player(player_id)
+            if self._game_result != "":
+                self.reveal_role(player, data["payload"])
+            elif player_id not in self._alives and player.role == Role.UNKNOWN:
+                self.reveal_role(player, data["payload"])
+                # "finish" = "0x66696e697368"
+            elif data["payload"][:12] == "66696e697368":
+                # self.finish(data["payload"][12:])
+                self.finish()
             elif self._is_daytime:
                 self.handle_vote(data)
             else:
                 self.handle_night(data)
 
     def handle_night(self, data):
-        if data["metadata"]["msg_sender"] == self._moderator:
-            self.handle_kill(data["payload"])
+        if data["metadata"]["msg_sender"].upper() == self._moderator:
+            self.handle_kill(bytes.fromhex(data["payload"]).decode())
         else:
             self.handle_move(data)
 
     def handle_move(self, data):
-        player_id = data["metadata"]["msg_sender"]
+        player_id = data["metadata"]["msg_sender"].upper()
 
         player = self.__get_player(player_id)
 
@@ -296,8 +321,8 @@ class Game:
         self._move_history.append(data)
 
     def handle_vote(self, data):
-        voter_id = data["metadata"]["msg_sender"]
-        candidate_id = data["payload"]
+        voter_id = data["metadata"]["msg_sender"].upper()
+        candidate_id = bytes.fromhex(data["payload"]).decode()
 
         voter = self.__get_player(voter_id)
 
@@ -348,10 +373,10 @@ class Game:
         self.__kill(victim_id)
 
     def dispatch_roles(self, data):
-        if data["metadata"]["msg_sender"] != self._moderator:
+        if data["metadata"]["msg_sender"].upper() != self._moderator:
             raise ValueError("only moderator can dispatch roles")
 
-        encrypted_roles = json.loads(data["payload"])
+        encrypted_roles = json.loads(bytes.fromhex(data["payload"]).decode())
 
         for p, e in encrypted_roles.items():
             self.__get_player(p).encrypted_role = e
@@ -383,12 +408,12 @@ class Game:
 
 #     keys.append((pri_key, pub_key))
 
-# player_ids = ["0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
-#               "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
-#               "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
-#               "0x90F79bf6EB2c4f870365E785982E1f101E93b906",
-#               "0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65",
-#               "0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc"]
+# player_ids = ["0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266".upper(),
+#               "0x70997970C51812dc3A010C7d01b50e0d17dc79C8".upper(),
+#               "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC".upper(),
+#               "0x90F79bf6EB2c4f870365E785982E1f101E93b906".upper(),
+#               "0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65".upper(),
+#               "0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc".upper()]
 
 # id_to_key = {}
 # for i in range(0, NUMBER_OF_PLAYER):
@@ -398,7 +423,7 @@ class Game:
 # for i in range(0, NUMBER_OF_PLAYER):
 #     data["metadata"] = {}
 #     data["metadata"]["msg_sender"] = player_ids[i]
-#     data["payload"] = keys[i][1].save_pkcs1().decode("utf-8")
+#     data["payload"] = keys[i][1].save_pkcs1("DER").hex()
 #     # new_player
 #     g.handle_advance(data)
 
@@ -510,7 +535,8 @@ class Game:
 
 # private_keys_dict = {}
 # for i in range(0, NUMBER_OF_PLAYER):
-#     private_keys_dict[player_ids[i]] = keys[i][0].save_pkcs1().decode("utf-8")
+#     private_keys_dict[player_ids[i]] = keys[i][0].save_pkcs1(
+#         "DER").hex()
 
 
 # data = {}
