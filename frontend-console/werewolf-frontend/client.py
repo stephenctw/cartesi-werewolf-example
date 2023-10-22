@@ -25,7 +25,7 @@ def main():
 
     # get game state and moderator
     while not moderator:
-        g = n.inspect('')
+        g = n.inspect('', player_index)
         moderator = g._moderator
         time.sleep(1)
     
@@ -46,11 +46,11 @@ def main():
             else:
                 encrypted_roles[player_ids[i]] = rsa.encrypt("VILLAGER".encode(), 
                             players[i].public_key)
-            n.send_on_chain(encrypted_roles)
+            n.send_on_chain(encrypted_roles, player_index)
     else:
         # wait for role
         while not role:
-            g = n.inspect('')
+            g = n.inspect('', player_index)
             encrypted_role = g._players[signer_address].encrypted_role
             role = rsa.decrypt(encrypted_role, private_key).decode()
 
@@ -58,7 +58,7 @@ def main():
 
     # game begins
 
-    g = n.inspect('')
+    g = n.inspect('', player_index)
     while signer_address in g._alives :
         # get the current round and _is_daytime
         round = g._rounds
@@ -70,36 +70,36 @@ def main():
                 victim = input('Who would you kill?\n')
                 action = "round " + round + " kill " + victim
                 n.send_on_chain(rsa.encrypt(action.encode(), 
-                            moderator.public_key))
+                            moderator.public_key), player_index)
             elif role == 'VILLAGER':
                 n.send_on_chain(rsa.encrypt("random message".encode(), 
-                            moderator.public_key))
+                            moderator.public_key), player_index)
             elif role == 'MODERATOR':
                 action = rsa.decrypt(n.get_raw_data(), private_key).decode()
                 vimtim = action.rsplit(' ', 1)[-1]
-                n.send_on_chain(vimtim)
+                n.send_on_chain(vimtim, player_index)
         else:
             print("day breaks...\n")
             # discuss who is werewolf and vote
             if role != 'MODERATOR':
                 vote_for = input('Who you think is werewolf?\n')
-                n.send_on_chain(vote_for)
+                n.send_on_chain(vote_for, player_index)
                 # revote if tie?
 
         # wait till day/night toggles
         while(_is_daytime == g._is_daytime()):
             time.sleep(1)
-            g = n.inspect('')
+            g = n.inspect('', player_index)
 
         # check if game has finished
         if role == 'MODERATOR':
-            g = n.inspect('')
+            g = n.inspect('', player_index)
             alives = len(g._alives)
             werewolf_alive = (werewolf in g._alives)
             if alives > 2 and not werewolf_alive:
-                n.send_on_chain("finish")
+                n.send_on_chain("finish", player_index)
             elif alives == 2 and werewolf_alive:
-                n.send_on_chain("finish")
+                n.send_on_chain("finish", player_index)
 
     print("game ended.\n")
-    n.send_on_chain(private_key)
+    n.send_on_chain(private_key, player_index)
