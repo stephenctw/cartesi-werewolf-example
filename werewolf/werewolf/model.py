@@ -285,7 +285,6 @@ class Game:
 
     def handle_move(self, data):
         player_id = data["metadata"]["msg_sender"]
-        encrypted_move = data["payload"]
 
         player = self.__get_player(player_id)
 
@@ -294,7 +293,7 @@ class Game:
 
         player.move()
         self._moves += 1
-        self._move_history.append(encrypted_move)
+        self._move_history.append(data)
 
     def handle_vote(self, data):
         voter_id = data["metadata"]["msg_sender"]
@@ -405,7 +404,6 @@ class Game:
 
 # g.print()
 
-
 # moderator = g._moderator
 # gamers = player_ids.copy()
 # gamers.remove(moderator)
@@ -442,7 +440,8 @@ class Game:
 # data = {}
 # data["metadata"] = {}
 # data["metadata"]["msg_sender"] = werewolf
-# data["payload"] = rsa.encrypt(b"KILL SOMEBODY", id_to_key[werewolf][1])
+# data["payload"] = rsa.encrypt(
+#     b"victim_id private_key", id_to_key[werewolf][1]).hex()
 # g.handle_advance(data)
 
 # data = {}
@@ -453,7 +452,7 @@ class Game:
 
 #     data["metadata"] = {}
 #     data["metadata"]["msg_sender"] = player_ids[i]
-#     data["payload"] = rsa.encrypt(b"NOTHING", keys[i][1])
+#     data["payload"] = rsa.encrypt(b"private_key", keys[i][1]).hex()
 #     # villagers move
 #     g.handle_advance(data)
 # g.print()
@@ -488,7 +487,7 @@ class Game:
 # g.handle_advance(data)
 # g.print()
 
-# # # revote
+# # revote
 # data = {}
 # data["metadata"] = {}
 # data["metadata"]["msg_sender"] = werewolf
@@ -518,6 +517,6 @@ class Game:
 # data["metadata"] = {}
 # data["metadata"]["msg_sender"] = moderator
 # data["payload"] = "finish" + json.dumps(private_keys_dict)
-# g.handle_inspect()
+# # g.handle_inspect()
 # g.handle_advance(data)
 # g.print()
