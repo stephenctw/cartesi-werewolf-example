@@ -1,6 +1,7 @@
 
 from os import environ
 import logging
+import jsonpickle
 import requests
 from werewolf.model import Game
 
@@ -14,8 +15,9 @@ logger.info(f"HTTP rollup_server url is {rollup_server}")
 def handle_advance(data):
     logger.info(f"Received advance request data {data}")
     logger.info("Adding notice")
+    data["payload"] = data["payload"][2:]
     g.handle_advance(data)
-    notice = {"payload": "success"}
+    notice = {"payload": "0x7878"}
     response = requests.post(rollup_server + "/notice", json=notice)
     logger.info(
         f"Received notice status {response.status_code} body {response.content}")
@@ -25,8 +27,8 @@ def handle_advance(data):
 def handle_inspect(data):
     logger.info(f"Received inspect request data {data}")
     logger.info("Adding report")
-    state = g.handle_inspect()
-    report = {"payload": state}
+    state = g.handle_inspect().encode().hex()
+    report = {"payload": "0x" + state}
     response = requests.post(rollup_server + "/report", json=report)
     logger.info(f"Received report status {response.status_code}")
     return "accept"
