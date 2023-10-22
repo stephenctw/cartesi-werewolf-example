@@ -13,13 +13,13 @@ variable "DOCKER_ORGANIZATION" {
 }
 
 target "server" {
-  tags = ["${DOCKER_ORGANIZATION}/dapp:werewolf-backend-${TAG}-server"]
+  tags = ["${DOCKER_ORGANIZATION}/dapp:werewolf-${TAG}-server"]
 }
 
 target "console" {
-  tags = ["${DOCKER_ORGANIZATION}/dapp:werewolf-backend-${TAG}-console"]
+  tags = ["${DOCKER_ORGANIZATION}/dapp:werewolf-${TAG}-console"]
 }
 
 target "machine" {
-  tags = ["${DOCKER_ORGANIZATION}/dapp:werewolf-backend-${TAG}-machine"]
+  tags = ["${DOCKER_ORGANIZATION}/dapp:werewolf-${TAG}-machine"]
 }
