@@ -17,10 +17,10 @@ player_ids = ["0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266".upper(),
 
 def main(player_index):
     signer_address = player_ids[player_index]
-    print(f"players address: {signer_address}\n")
+    print(f"\n Your address is : *** {signer_address} ***\n")
     n = Network()
 
-    public_key, private_key = rsa.newkeys(2048, poolsize=8)
+    public_key, private_key = rsa.newkeys(2048)
     # send public key to join the game
     n.send_on_chain(public_key.save_pkcs1("DER").hex(), player_index)
 
@@ -30,7 +30,7 @@ def main(player_index):
     while not moderator:
         g = n.inspect()
         moderator = g._moderator
-        time.sleep(5)
+        time.sleep(1)
 
     if signer_address == moderator:
         role = "MODERATOR"
@@ -60,7 +60,7 @@ def main(player_index):
         while len(encrypted_role) == 0:
             g = n.inspect()
             encrypted_role = g._players[signer_address].encrypted_role
-            time.sleep(5)
+            time.sleep(1)
 
         role = rsa.decrypt(bytes.fromhex(encrypted_role), private_key).decode()
 
@@ -82,7 +82,7 @@ def main(player_index):
         _is_daytime = g._is_daytime
 
         if _is_daytime == False:
-            print("night falls...\n")
+            print("\nnight falls...\n")
             if role == 'WEREWOLF':
                 if not g._players[signer_address].has_moved:
                     victim = input('Who would you kill?\n')
@@ -94,7 +94,7 @@ def main(player_index):
                         "dummy".encode(), moderator_public_key).hex(), player_index)
             elif role == 'MODERATOR':
                 while len(g._move_history) < moves_counter + len(g._alives):
-                    time.sleep(5)
+                    time.sleep(1)
                     g = n.inspect()
 
                 if len(g._move_history) == moves_counter + len(g._alives):
@@ -115,7 +115,7 @@ def main(player_index):
 
                     moves_counter += len(g._alives)
         else:
-            print("day breaks...\n")
+            print("\nday breaks...\n")
             # discuss who is werewolf and vote
             if role != 'MODERATOR':
                 vote_for = input('Who you think is werewolf?\n')
@@ -124,7 +124,7 @@ def main(player_index):
 
         # wait till day/night toggles
         while (_is_daytime == g._is_daytime):
-            time.sleep(5)
+            time.sleep(1)
             g = n.inspect()
 
         # check if game has finished
@@ -134,15 +134,25 @@ def main(player_index):
             finish_payload = "finish"
             if alives > 2 and not werewolf_alive:
                 n.send_on_chain(finish_payload.encode().hex(), player_index)
+                print("\nVillagers win !!!\n")
+                break
             elif alives == 2 and werewolf_alive:
                 n.send_on_chain(finish_payload.encode().hex(), player_index)
+                print("\nWerewolf wins !!!\n")
+                break
         elif not signer_address in g._alives:
             print("I died...\n")
             # reveal private key
             n.send_on_chain(private_key.save_pkcs1("DER").hex(), player_index)
             break
+        else:
+            # wait for moderator to check if the game finishes
+            time.sleep(15)
+            g = n.inspect()
+            if g._game_result != "":
+                break
 
-        time.sleep(15)
+        
         g = n.inspect()
 
     print("game ended.\n")
